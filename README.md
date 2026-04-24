@@ -3,8 +3,7 @@
 HDLC-framed SPI (and GPS UART) sensor reader → POSIX shared memory (seqlock) → Python reader.
 
 This repository provides a C++ daemon that polls multiple SPI devices at ~200 Hz,
-decodes HDLC-framed payloads with CRC checking, simultaneously reads GPS over UART 
-with the Waveshare SIM7600X HAT at 1Hz, and publishes the latest sensor snapshot into 
+decodes HDLC-framed payloads with CRC checking, and publishes the latest sensor snapshot into 
 POSIX shared memory. Consumers (e.g. Python) can read the data lock-free using a sequence 
 lock.
 
@@ -16,7 +15,7 @@ The system is designed to be extended as additional sensors are brought online.
 ---
 
 ## Python Data Structure
-
+Note - this is not final and is subject to changes
 ```python
 # read_snapshot_dict() returns:
 {
@@ -75,11 +74,8 @@ All timestamps are in microseconds.
 
 1. **Compile & run the C++ writer**
    ```bash
-    g++ -O2 -std=c++17 write_shm.cpp \
-    -lpigpiod_if2 -lrt -pthread \
-    -o shm_writer
+    g++ -O2 -std=c++17 write_shm.cpp -lrt -pthread -o shm_writer
 
-    sudo pigpiod
     ./shm_writer
    ```
    Keep this running in one terminal or screen, Ctrl+C to stop cleanly. Even better
@@ -106,7 +102,7 @@ All timestamps are in microseconds.
 
 ## Electrical Section
 
-Proposed SPI setup for UC26:
+Proposed SPI setup for igvc:
 
 | CS GPIO | Description          | Format                                                    |
 |---------|----------------------|-----------------------------------------------------------|
