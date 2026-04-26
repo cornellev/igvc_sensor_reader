@@ -10,6 +10,7 @@
 #include "hardware/irq.h"
 #include "hardware/structs/io_bank0.h"
 #include "hardware/sync.h"
+#include "hardware/adc.h"
 
 #define SPI_PORT spi0
 #define PIN_RX   20
@@ -17,12 +18,13 @@
 #define PIN_SCK  18
 #define PIN_TX   19
 #define LED      25
+#define STEERING_PIN 26
 
-#define HALL_PIN_L 2
-#define HALL_PIN_R 3
-#define PPR      68 
+#define HALL_PIN_L 11
+#define HALL_PIN_R 13
+#define PPR        18
 
-#define MIN_RPM  1.0f
+#define MIN_RPM  100.0f
 #define MAX_RPM  5000.0f
 #define RPM_TIMEOUT_US \
     ((uint32_t)((60.0e6f / (MIN_RPM * (float)PPR))))
@@ -154,9 +156,9 @@ static void configure_dma(void) {
 static void check_rpms_zero() {
     uint32_t now = (uint32_t)time_us_64();
 
-    bool is_zero_l = (motor_l_rpm > 0.0f) &&
+    bool is_zero_l = (motor_l_rpm > 0.0f) && (motor_l_rpm < 3 * MIN_RPM) &&
                         ((uint32_t)(now - last_rise_l_us) > RPM_TIMEOUT_US);
-    bool is_zero_r = (motor_r_rpm > 0.0f) &&
+    bool is_zero_r = (motor_r_rpm > 0.0f) && (motor_r_rpm < 3 * MIN_RPM) &&
                         ((uint32_t)(now - last_rise_r_us) > RPM_TIMEOUT_US);
 
     if (!is_zero_l && !is_zero_r) return;
@@ -173,6 +175,8 @@ static void check_rpms_zero() {
         motor_r_rpm = 0.0f;
     }
     restore_interrupts(save);
+
+    //printf("zeroed\n");
 
 }
 
@@ -194,6 +198,7 @@ static void update_rpm(volatile uint32_t* last_rise_us, volatile float* motor_rp
     if (raw_rpm >= MIN_RPM && raw_rpm <= MAX_RPM) {
         *motor_rpm = raw_rpm;
     }
+    //printf("new speed detected: %f\n", *motor_rpm);
 }
 
 static void answer_SPI_test(void) {
@@ -254,7 +259,7 @@ static void irq_handler(uint gpio, uint32_t events) {
             if (events & GPIO_IRQ_EDGE_FALL) {
                 answer_SPI(payload, frame_buf);
                 //answer_SPI_test();
-                printf("spi answered!\n");
+                //printf("spi answered!\n");
             } else if (events & GPIO_IRQ_EDGE_RISE) {
                 if (data_chan >= 0) { dma_channel_abort(data_chan); }
                 set_gpio_hi_z(PIN_TX);
@@ -296,6 +301,10 @@ static void init_all(void) {
     //gpio_pull_up(PIN_CS);
     gpio_set_irq_enabled( PIN_CS, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
 
+    adc_init();
+    adc_gpio_init(STEERING_PIN);
+    adc_select_input(0);
+
     // gpio_init(PIN_TX);
     // set_gpio_hi_z(PIN_TX);
     // gpio_set_function(PIN_TX, GPIO_FUNC_SPI);
@@ -309,5 +318,6 @@ int main(void) {
         //printf("%f, %f\n", motor_l_rpm, motor_r_rpm);
         check_rpms_zero();
         tight_loop_contents();
+        printf("steering angle: %d\n", adc_read());
     }
 }

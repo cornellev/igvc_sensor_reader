@@ -49,6 +49,7 @@ target_link_libraries(rpm_firmware
         pico_stdlib
         hardware_spi
         hardware_dma
+        hardware_adc
         )
 
 # Add the standard include files to the build
